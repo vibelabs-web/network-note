@@ -201,3 +201,20 @@ Key variables in `.env`:
 - `frontend/Dockerfile` - Node 20 + Vite
 - `backend/app/main.py` - FastAPI 기본 앱 (`/health` 엔드포인트)
 - `frontend/src/App.tsx` - React 기본 컴포넌트
+
+### [x] Task 1.2: Backend 기본 구조 및 FastAPI 설정 (완료)
+
+**구현 내용:**
+- Backend 디렉토리 구조 생성 (models, schemas, api, services, utils)
+- `config.py`: Pydantic Settings 기반 환경 변수 관리 (MongoDB, ChromaDB, Ollama 설정)
+- `mongo_service.py`: MongoDB 클라이언트 싱글톤 패턴, 연결 상태 확인 함수
+- `main.py`: FastAPI lifespan 관리, CORS 미들웨어, 헬스체크 엔드포인트
+
+**생성된 핵심 파일:**
+- `backend/app/config.py` - 환경 변수 설정 (Settings 클래스)
+- `backend/app/services/mongo_service.py` - MongoDB 연결 서비스
+- `backend/app/main.py` - `/health`, `/health/db` 엔드포인트
+
+**API 엔드포인트:**
+- `GET /health` → `{"status": "healthy"}`
+- `GET /health/db` → `{"status": "healthy", "database": "connected"}`

@@ -91,7 +91,7 @@
 
 ---
 
-### [ ] Task 1.2: Backend 기본 구조 및 FastAPI 설정
+### [x] Task 1.2: Backend 기본 구조 및 FastAPI 설정
 
 **목표**: FastAPI 애플리케이션의 기본 구조를 설정하고, MongoDB 연결을 위한 기본 설정을 완료한다.
 
