@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker compose:*)",
+      "Bash(docker:*)",
+      "Bash(pnpm:*)",
+      "Bash(poetry:*)",
+      "Bash(npm:*)",
+      "Bash(python:*)",
+      "Bash(pytest:*)",
+      "Bash(pip:*)",
+      "Bash(mongosh:*)",
+      "Bash(curl:*)",
+      "Bash(ls:*)",
+      "Bash(mkdir:*)",
+      "Bash(cat:*)",
+      "Read",
+      "Write",
+      "Edit",
+      "Glob",
+      "Grep"
+    ]
+  }
+}
