@@ -61,7 +61,7 @@ docker compose exec frontend sh
 | Service   | Port  | Access    |
 |-----------|-------|-----------|
 | Frontend  | 5174  | External  |
-| Backend   | 8000  | External  |
+| Backend   | 8001  | External  |
 | MongoDB   | 27017 | Internal  |
 | Ollama    | 11434 | External  |
 | ChromaDB  | -     | Internal  |

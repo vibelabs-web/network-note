@@ -64,7 +64,7 @@ services:
     container_name: star-note-backend
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "8001:8001"
     volumes:
       - ./backend:/app
     environment:
@@ -76,7 +76,7 @@ services:
       - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2:3b}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:-all-MiniLM-L6-v2}
       - API_HOST=0.0.0.0
-      - API_PORT=8000
+      - API_PORT=8001
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:5174}
       - ENV=${ENV:-development}
     depends_on:
@@ -85,10 +85,10 @@ services:
       chromadb:
         condition: service_started
       ollama:
-        condition: service_healthy
+        condition: service_started
     networks:
       - star-note-network
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
 
   # Frontend 서비스 (React + Vite)
   frontend:
@@ -103,7 +103,7 @@ services:
       - ./frontend:/app
       - /app/node_modules
     environment:
-      - VITE_API_URL=${VITE_API_URL:-http://localhost:8000}
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:8001}
       - NODE_ENV=development
     depends_on:
       - backend
