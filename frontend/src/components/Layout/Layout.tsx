@@ -89,7 +89,24 @@ export function Layout() {
           </div>
 
           {/* 우측 액션 */}
-          <div className="ml-auto flex items-center gap-1">
+          <div className="ml-auto flex items-center gap-2">
+            {/* 그래프 버튼 */}
+            <button
+              onClick={() => navigate('/graph')}
+              className="p-1.5 rounded hover:bg-[#3c3c3c] transition-colors text-gray-400 hover:text-gray-200"
+              title="네트워크 그래프"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="3" strokeWidth={1.5} />
+                <circle cx="19" cy="5" r="2" strokeWidth={1.5} />
+                <circle cx="5" cy="5" r="2" strokeWidth={1.5} />
+                <circle cx="5" cy="19" r="2" strokeWidth={1.5} />
+                <circle cx="19" cy="19" r="2" strokeWidth={1.5} />
+                <path strokeLinecap="round" strokeWidth={1.5} d="M12 9V7M12 15v2M9 12H7m8 0h2M14.5 9.5l2-2M9.5 14.5l-2 2M14.5 14.5l2 2M9.5 9.5l-2-2" />
+              </svg>
+            </button>
+
+            {/* 새 메모 버튼 */}
             <button
               onClick={handleNewMemo}
               className="px-3 py-1 text-xs bg-[#0e639c] hover:bg-[#1177bb] rounded transition-colors"
