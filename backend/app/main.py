@@ -9,7 +9,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.services.mongo_service import check_connection, close_connection
+from app.services.mongo_service import (
+    check_connection,
+    close_connection,
+    create_indexes,
+)
 
 
 @asynccontextmanager
@@ -22,6 +26,13 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     print(f"Starting Star Note API in {settings.env} mode...")
     print(f"MongoDB: {settings.mongodb_host}:{settings.mongodb_port}/{settings.mongodb_db_name}")
+
+    # MongoDB 인덱스 생성
+    try:
+        index_result = create_indexes()
+        print(f"MongoDB indexes created: {index_result['count']} indexes")
+    except Exception as e:
+        print(f"Warning: Failed to create indexes: {e}")
 
     yield
 

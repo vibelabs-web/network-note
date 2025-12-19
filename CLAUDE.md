@@ -243,3 +243,27 @@ Key variables in `.env`:
 - `/memos/:id` - 메모 상세/편집
 - `/graph` - 그래프 뷰
 - `/*` - 404 페이지
+
+### [x] Task 2.1: MongoDB 스키마 설계 및 구현 (완료)
+
+**구현 내용:**
+- Pydantic 스키마 정의 (MemoCreate, MemoUpdate, MemoResponse, ConnectionResponse)
+- MongoDB 모델 정의 (MemoDocument, ConnectionDict)
+- Zettel ID 생성 유틸리티 (YYYY-MM-DD-XXX 형식)
+- MongoDB 인덱스 8개 자동 생성 (애플리케이션 시작 시)
+
+**생성된 핵심 파일:**
+- `backend/app/schemas/memo.py` - Pydantic 스키마 (검증 규칙 포함)
+- `backend/app/models/memo.py` - MongoDB 문서 구조 및 변환 함수
+- `backend/app/utils/zettel_id.py` - Zettel ID 생성/파싱/검증
+- `backend/app/services/mongo_service.py` - 인덱스 생성 함수 추가
+
+**MongoDB 인덱스:**
+- `idx_zettel_id` (unique) - 중복 방지
+- `idx_text_search` - 전문 검색 (제목 가중치 10)
+- `idx_tags` - 태그 필터링
+- `idx_created_at` - 최신순 정렬
+- `idx_updated_at` - 수정순 정렬
+- `idx_connection_count` - 연결순 정렬
+- `idx_tags_created_at` - 복합 인덱스
+- `idx_connections_target_id` - 연결 조회
