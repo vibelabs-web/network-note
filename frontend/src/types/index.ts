@@ -7,24 +7,27 @@ export type ConnectionType = 'explicit' | 'suggested';
 
 // 메모 연결
 export interface Connection {
-  targetId: string;
+  target_id: string;
   type: ConnectionType;
   strength: number;
-  createdAt: string;
+  created_at: string;
+  // 연결된 메모 정보 (상세 조회 시 포함)
+  target_title?: string;
+  target_zettel_id?: string;
 }
 
 // 메모
 export interface Memo {
-  _id: string;
-  zettelId: string;
+  id: string;
+  zettel_id: string;
   title: string;
   content: string;
   connections: Connection[];
   mentions: string[];
   tags: string[];
-  connectionCount: number;
-  createdAt: string;
-  updatedAt: string;
+  connection_count: number;
+  created_at: string;
+  updated_at: string;
 }
 
 // 메모 생성 요청
@@ -76,6 +79,6 @@ export interface PaginatedResponse<T> {
   items: T[];
   total: number;
   page: number;
-  pageSize: number;
-  totalPages: number;
+  page_size: number;
+  total_pages: number;
 }

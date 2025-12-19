@@ -5,10 +5,13 @@ Star Note API - FastAPI Application Entry Point
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
+from app.api import memos_router
 from app.config import get_settings
+from app.exceptions import StarNoteException
 from app.services.mongo_service import (
     check_connection,
     close_connection,
@@ -58,6 +61,26 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Exception Handlers
+@app.exception_handler(StarNoteException)
+async def star_note_exception_handler(
+    request: Request, exc: StarNoteException
+) -> JSONResponse:
+    """Star Note 커스텀 예외 핸들러."""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": True,
+            "message": exc.message,
+            "detail": exc.detail,
+        },
+    )
+
+
+# API Routers
+app.include_router(memos_router)
 
 
 @app.get("/")

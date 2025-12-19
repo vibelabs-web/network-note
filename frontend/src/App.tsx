@@ -1,13 +1,12 @@
 /**
  * Star Note - Main App Component
- * React Router를 사용한 라우팅 설정
+ * Scrivener 스타일 라우팅 설정
  */
 
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import {
-  HomePage,
-  MemoListPage,
+  WelcomePage,
   MemoDetailPage,
   GraphPage,
   NotFoundPage,
@@ -17,12 +16,15 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Layout을 사용하는 라우트들 */}
+        {/* Scrivener 스타일 레이아웃 */}
         <Route path="/" element={<Layout />}>
-          <Route index element={<HomePage />} />
-          <Route path="memos" element={<MemoListPage />} />
+          {/* 기본: 환영 화면 */}
+          <Route index element={<WelcomePage />} />
+          {/* 메모 편집/생성 */}
           <Route path="memos/:id" element={<MemoDetailPage />} />
+          {/* 그래프 뷰 */}
           <Route path="graph" element={<GraphPage />} />
+          {/* 404 */}
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>

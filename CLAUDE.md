@@ -267,3 +267,70 @@ Key variables in `.env`:
 - `idx_connection_count` - 연결순 정렬
 - `idx_tags_created_at` - 복합 인덱스
 - `idx_connections_target_id` - 연결 조회
+
+### [x] Task 2.2: 메모 CRUD API 구현 (완료)
+
+**구현 내용:**
+- 메모 CRUD API 5개 엔드포인트 구현
+- 커스텀 예외 클래스 및 전역 에러 핸들러 구현
+- 페이지네이션, 정렬, 태그 필터, 텍스트 검색 지원
+- 메모 삭제 시 연결된 다른 메모의 connections 배열 자동 정리
+
+**생성된 핵심 파일:**
+- `backend/app/api/memos.py` - 메모 CRUD API 라우터
+- `backend/app/exceptions.py` - 커스텀 예외 클래스
+
+**API 엔드포인트:**
+- `POST /api/memos` - 메모 생성 (Zettel ID 자동 생성)
+- `GET /api/memos` - 메모 목록 조회 (페이지네이션, 정렬, 필터, 검색)
+- `GET /api/memos/{memo_id}` - 메모 상세 조회 (연결 메모 정보 포함)
+- `PUT /api/memos/{memo_id}` - 메모 수정 (updated_at 자동 업데이트)
+- `DELETE /api/memos/{memo_id}` - 메모 삭제 (연결 자동 정리)
+
+**쿼리 파라미터 (GET /api/memos):**
+- `page`: 페이지 번호 (기본값: 1)
+- `limit`: 페이지당 개수 (기본값: 20, 최대: 100)
+- `sort`: 정렬 기준 (created_at, updated_at, connection_count, title)
+- `order`: 정렬 방향 (asc, desc)
+- `tag`: 태그 필터
+- `search`: 텍스트 검색 (제목, 내용)
+
+**에러 응답 형식:**
+```json
+{
+  "error": true,
+  "message": "에러 메시지",
+  "detail": { ... }
+}
+```
+
+### [x] Task 2.3: Frontend 메모 CRUD UI 구현 (완료)
+
+**구현 내용:**
+- API 클라이언트 함수 (getMemos, getMemo, createMemo, updateMemo, deleteMemo)
+- Zustand 스토어 (useMemoStore) - 메모 목록, 상태, 필터, CRUD 액션 관리
+- 공통 UI 컴포넌트 (Loading, Empty, ErrorMessage, Pagination, ConfirmDialog, Tag)
+- MemoCard 컴포넌트 - 메모 카드 표시 (제목, 미리보기, 태그, 연결 수)
+- MemoListSidebar 컴포넌트 - 검색, 태그 필터, 정렬 기능
+- MemoListPage - 메모 목록, 페이지네이션, 필터링
+- MemoDetailPage - 분할 뷰 에디터/미리보기, 자동 저장, 삭제 확인
+- MarkdownPreview 컴포넌트 - react-markdown + remark-gfm
+- HomePage 업데이트 - 최근 메모, 통계 표시
+
+**생성된 핵심 파일:**
+- `frontend/src/api/memos.ts` - API 클라이언트 함수
+- `frontend/src/stores/memoStore.ts` - Zustand 상태 관리
+- `frontend/src/components/common/` - Loading, Empty, ErrorMessage, Pagination, ConfirmDialog, Tag
+- `frontend/src/components/MemoCard.tsx` - 메모 카드 컴포넌트
+- `frontend/src/components/MemoListSidebar.tsx` - 사이드바 (검색, 필터, 정렬)
+- `frontend/src/components/MarkdownPreview.tsx` - 마크다운 렌더링
+- `frontend/src/pages/MemoListPage.tsx` - 메모 목록 페이지 (리팩토링)
+- `frontend/src/pages/MemoDetailPage.tsx` - 메모 상세/편집 페이지 (리팩토링)
+- `frontend/src/pages/HomePage.tsx` - 홈 페이지 (업데이트)
+
+**주요 기능:**
+- 메모 목록: 카드 그리드 뷰, 페이지네이션, 검색, 태그 필터, 정렬
+- 메모 편집: 분할 뷰 (마크다운 에디터 + 실시간 미리보기)
+- 자동 저장: 2초 디바운싱으로 변경사항 자동 저장
+- 삭제 확인: ConfirmDialog 모달로 삭제 확인
+- 에러 처리: 로딩 상태, 에러 메시지, 재시도 버튼

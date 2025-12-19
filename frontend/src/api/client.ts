@@ -5,7 +5,7 @@
 import axios, { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 
 // 환경 변수에서 API URL 읽기
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001';
 
 // Axios 인스턴스 생성
 export const apiClient = axios.create({
