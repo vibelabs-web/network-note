@@ -1,9 +1,104 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Pretendard 폰트 (CDN) */
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+
+/* CSS 변수 정의 */
+:root {
+  /* Primary Colors */
+  --color-primary-500: #6366F1;
+  --color-primary-600: #4F46E5;
+
+  /* Star Colors */
+  --color-star-dim: #9CA3AF;
+  --color-star-small: #6B7280;
+  --color-star-medium: #4F46E5;
+  --color-star-large: #6366F1;
+  --color-star-hub: #818CF8;
+
+  /* Background */
+  --color-bg-primary: #FFFFFF;
+  --color-bg-secondary: #F9FAFB;
+  --color-bg-tertiary: #F3F4F6;
+
+  /* Text */
+  --color-text-primary: #111827;
+  --color-text-secondary: #6B7280;
+  --color-text-tertiary: #9CA3AF;
+
+  /* Border */
+  --color-border-default: #E5E7EB;
+  --color-border-focus: #6366F1;
+}
+
+/* 다크 모드 */
+.dark {
+  --color-primary-500: #6366F1;
+  --color-primary-600: #818CF8;
+
+  --color-star-dim: #4B5563;
+  --color-star-small: #6B7280;
+  --color-star-medium: #818CF8;
+  --color-star-large: #A5B4FC;
+  --color-star-hub: #C7D2FE;
+
+  --color-bg-primary: #0F172A;
+  --color-bg-secondary: #1E293B;
+  --color-bg-tertiary: #334155;
+
+  --color-text-primary: #F9FAFB;
+  --color-text-secondary: #9CA3AF;
+  --color-text-tertiary: #6B7280;
+
+  --color-border-default: #374151;
+  --color-border-focus: #818CF8;
+}
+
+/* 기본 스타일 리셋 */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
+html {
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
 body {
   min-height: 100vh;
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 스크롤바 스타일 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-text-tertiary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-secondary);
+}
+
+/* 다크 모드 스크롤바 */
+.dark ::-webkit-scrollbar-thumb {
+  background: #4B5563;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #6B7280;
 }

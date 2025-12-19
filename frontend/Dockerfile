@@ -1,10 +1,13 @@
 FROM node:20-alpine
 
+# pnpm 설치
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
 WORKDIR /app
 
 # 패키지 파일 복사 및 설치
-COPY package.json package-lock.json* ./
-RUN npm install
+COPY package.json pnpm-lock.yaml* ./
+RUN pnpm install --frozen-lockfile || pnpm install
 
 # 소스 코드 복사
 COPY . .
@@ -13,4 +16,4 @@ COPY . .
 EXPOSE 5174
 
 # 개발 서버 실행
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5174"]
+CMD ["pnpm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5174"]

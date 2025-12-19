@@ -218,3 +218,28 @@ Key variables in `.env`:
 **API 엔드포인트:**
 - `GET /health` → `{"status": "healthy"}`
 - `GET /health/db` → `{"status": "healthy", "database": "connected"}`
+
+### [x] Task 1.3: Frontend 기본 구조 및 React 설정 (완료)
+
+**구현 내용:**
+- Frontend 디렉토리 구조 생성 (components, pages, hooks, stores, utils, types, api)
+- Tailwind CSS 설정 (Design System 색상 및 타이포그래피 적용)
+- React Router 기반 라우팅 설정 (홈, 메모 목록, 메모 상세, 그래프, 404)
+- 레이아웃 컴포넌트 (Layout, Header, Sidebar)
+- Axios 기반 API 클라이언트 설정
+- pnpm 패키지 매니저 사용
+
+**생성된 핵심 파일:**
+- `frontend/src/App.tsx` - React Router 설정
+- `frontend/src/components/Layout/` - Layout, Header, Sidebar 컴포넌트
+- `frontend/src/pages/` - HomePage, MemoListPage, MemoDetailPage, GraphPage, NotFoundPage
+- `frontend/src/api/client.ts` - Axios 인스턴스 및 인터셉터
+- `frontend/src/types/index.ts` - TypeScript 타입 정의
+- `frontend/tailwind.config.js` - Tailwind CSS 설정
+
+**라우트:**
+- `/` - 홈 (대시보드)
+- `/memos` - 메모 목록
+- `/memos/:id` - 메모 상세/편집
+- `/graph` - 그래프 뷰
+- `/*` - 404 페이지
