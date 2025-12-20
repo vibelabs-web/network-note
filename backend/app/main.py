@@ -9,7 +9,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import memos_router
+from app.api import memos_router, connections_router
 from app.config import get_settings
 from app.exceptions import StarNoteException
 from app.services.mongo_service import (
@@ -17,6 +17,12 @@ from app.services.mongo_service import (
     close_connection,
     create_indexes,
 )
+from app.services.vector_service import (
+    check_connection as check_chroma_connection,
+    close_connection as close_chroma_connection,
+    get_collection_count,
+)
+from app.services.embedding_service import check_model_loaded
 
 
 @asynccontextmanager
@@ -42,6 +48,7 @@ async def lifespan(app: FastAPI):
     # Shutdown
     print("Shutting down Star Note API...")
     close_connection()
+    close_chroma_connection()
 
 
 # Create FastAPI application
@@ -81,6 +88,7 @@ async def star_note_exception_handler(
 
 # API Routers
 app.include_router(memos_router)
+app.include_router(connections_router)
 
 
 @app.get("/")
@@ -120,3 +128,75 @@ async def health_db():
             "database": "disconnected",
             "error": db_status.get("error", "Unknown error"),
         }
+
+
+@app.get("/health/vector")
+async def health_vector():
+    """
+    Vector database health check endpoint.
+    ChromaDB 연결 상태를 확인합니다.
+    """
+    chroma_status = check_chroma_connection()
+    if chroma_status["connected"]:
+        return {
+            "status": "healthy",
+            "chromadb": "connected",
+            "collection_count": get_collection_count(),
+        }
+    else:
+        return {
+            "status": "unhealthy",
+            "chromadb": "disconnected",
+            "error": chroma_status.get("error", "Unknown error"),
+        }
+
+
+@app.get("/health/embedding")
+async def health_embedding():
+    """
+    Embedding model health check endpoint.
+    임베딩 모델 로드 상태를 확인합니다.
+    """
+    model_status = check_model_loaded()
+    if model_status["loaded"]:
+        return {
+            "status": "healthy",
+            "model": model_status.get("model_name", "unknown"),
+            "embedding_dimension": model_status.get("embedding_dimension", 0),
+        }
+    else:
+        return {
+            "status": "unhealthy",
+            "model": "not loaded",
+            "error": model_status.get("error", "Unknown error"),
+        }
+
+
+@app.get("/health/all")
+async def health_all():
+    """
+    전체 서비스 헬스체크.
+    MongoDB, ChromaDB, 임베딩 모델 상태를 모두 확인합니다.
+    """
+    db_status = check_connection()
+    chroma_status = check_chroma_connection()
+    model_status = check_model_loaded()
+
+    all_healthy = (
+        db_status["connected"]
+        and chroma_status["connected"]
+        and model_status["loaded"]
+    )
+
+    return {
+        "status": "healthy" if all_healthy else "unhealthy",
+        "services": {
+            "mongodb": "connected" if db_status["connected"] else "disconnected",
+            "chromadb": "connected" if chroma_status["connected"] else "disconnected",
+            "embedding_model": "loaded" if model_status["loaded"] else "not loaded",
+        },
+        "details": {
+            "chromadb_collection_count": get_collection_count() if chroma_status["connected"] else 0,
+            "embedding_dimension": model_status.get("embedding_dimension", 0) if model_status["loaded"] else 0,
+        },
+    }

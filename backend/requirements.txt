@@ -14,3 +14,9 @@ httpx>=0.25.0
 
 # Environment variables
 python-dotenv>=1.0.0
+
+# Vector Database (ChromaDB)
+chromadb>=0.4.0
+
+# Embedding Model (Sentence Transformers)
+sentence-transformers>=2.2.0

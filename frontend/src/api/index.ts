@@ -4,3 +4,4 @@
 
 export { apiClient } from './client';
 export * from './memos';
+export * from './connections';

@@ -9,6 +9,7 @@ import type {
   CreateMemoRequest,
   UpdateMemoRequest,
   PaginatedResponse,
+  MemoNameSearchResponse,
 } from '@/types';
 
 // 메모 목록 조회 파라미터
@@ -74,5 +75,21 @@ export async function deleteMemo(
   id: string
 ): Promise<{ message: string; deleted_id: string; deleted_zettel_id: string }> {
   const { data } = await apiClient.delete(`/api/memos/${id}`);
+  return data;
+}
+
+/**
+ * 메모명 검색 (멘션 자동완성용)
+ */
+export async function searchMemoNames(
+  query: string,
+  limit: number = 10
+): Promise<MemoNameSearchResponse> {
+  const { data } = await apiClient.get<MemoNameSearchResponse>(
+    '/api/memos/search/names',
+    {
+      params: { q: query, limit },
+    }
+  );
   return data;
 }

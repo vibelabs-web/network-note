@@ -82,3 +82,49 @@ export interface PaginatedResponse<T> {
   page_size: number;
   total_pages: number;
 }
+
+// 메모명 검색 결과 (멘션 자동완성용)
+export interface MemoNameSearchResult {
+  id: string;
+  title: string;
+  zettel_id: string;
+}
+
+// 메모명 검색 응답
+export interface MemoNameSearchResponse {
+  results: MemoNameSearchResult[];
+  total: number;
+}
+
+// 연결 생성 요청
+export interface CreateConnectionRequest {
+  source_id: string;
+  target_id: string;
+  type?: ConnectionType;
+  strength?: number;
+  reason?: string;
+}
+
+// 연결 삭제 요청
+export interface DeleteConnectionRequest {
+  source_id: string;
+  target_id: string;
+}
+
+// 연결 정보 (상세)
+export interface ConnectionInfo {
+  target_id: string;
+  target_title?: string;
+  target_zettel_id?: string;
+  type: ConnectionType;
+  strength: number;
+  reason?: string;
+  created_at: string;
+}
+
+// 연결 목록 응답
+export interface ConnectionListResponse {
+  memo_id: string;
+  connections: ConnectionInfo[];
+  total: number;
+}

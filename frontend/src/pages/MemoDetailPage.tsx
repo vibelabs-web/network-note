@@ -7,6 +7,9 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useMemoStore } from '@/stores/memoStore';
 import { MarkdownPreview } from '@/components/MarkdownPreview';
+import { MentionAutocomplete } from '@/components/MentionAutocomplete';
+import { getCurrentMention, insertMention, type MentionType } from '@/utils/mentionParser';
+import type { MemoNameSearchResult } from '@/types';
 
 type ViewMode = 'edit' | 'preview' | 'split';
 
@@ -50,13 +53,27 @@ export function MemoDetailPage() {
   // 자동 저장 타이머
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // 메모 로딩
+  // 멘션 자동완성 상태
+  const [showMention, setShowMention] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionPosition, setMentionPosition] = useState({ top: 0, left: 0 });
+  const [mentionRange, setMentionRange] = useState({ start: 0, end: 0 });
+  const [mentionType, setMentionType] = useState<MentionType>('at');
+
+  // 메모 로딩 및 폼 초기화
   useEffect(() => {
-    if (!isNew && id) {
-      fetchMemo(id);
-    } else if (isNew) {
+    if (isNew) {
+      // 새 메모: 폼 초기화
+      setTitle('');
+      setContent('');
+      setTagsInput('');
+      setHasChanges(false);
+      setSaveStatus('saved');
       setTimeout(() => titleInputRef.current?.focus(), 100);
+    } else if (id) {
+      fetchMemo(id);
     }
     return () => {
       clearCurrentMemo();
@@ -120,6 +137,99 @@ export function MemoDetailPage() {
       .split(',')
       .map(tag => tag.trim().toLowerCase())
       .filter(tag => tag.length > 0);
+  }, []);
+
+  // 커서 위치에서 드롭다운 위치 계산
+  const calculateMentionPosition = useCallback(() => {
+    const textarea = contentTextareaRef.current;
+    if (!textarea) return { top: 0, left: 0 };
+
+    // textarea의 위치 정보
+    const rect = textarea.getBoundingClientRect();
+    const computedStyle = getComputedStyle(textarea);
+    const lineHeight = parseFloat(computedStyle.lineHeight) || 20;
+    const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+    const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+
+    // 커서 위치까지의 텍스트로 라인 수 계산
+    const textBeforeCursor = content.slice(0, textarea.selectionStart);
+    const lines = textBeforeCursor.split('\n');
+    const currentLineIndex = lines.length - 1;
+    const currentLineText = lines[currentLineIndex];
+
+    // 대략적인 문자 너비 (monospace 폰트 가정)
+    const charWidth = 8.5;
+
+    // 위치 계산
+    const top = rect.top + paddingTop + (currentLineIndex + 1) * lineHeight + 5;
+    const left = rect.left + paddingLeft + currentLineText.length * charWidth;
+
+    // 화면 경계 체크
+    const maxLeft = window.innerWidth - 300; // 드롭다운 너비 고려
+    const maxTop = window.innerHeight - 250; // 드롭다운 높이 고려
+
+    return {
+      top: Math.min(top, maxTop),
+      left: Math.min(left, maxLeft),
+    };
+  }, [content]);
+
+  // 콘텐츠 변경 처리 (멘션 감지 포함)
+  const handleContentChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const newContent = e.target.value;
+      const cursorPos = e.target.selectionStart;
+
+      setContent(newContent);
+
+      // 멘션 감지 (@ 또는 [[ 트리거)
+      const mention = getCurrentMention(newContent, cursorPos);
+
+      if (mention) {
+        setMentionQuery(mention.mention);
+        setMentionRange({ start: mention.startIndex, end: mention.endIndex });
+        setMentionType(mention.type);
+        setMentionPosition(calculateMentionPosition());
+        setShowMention(true);
+      } else {
+        setShowMention(false);
+        setMentionQuery('');
+      }
+    },
+    [calculateMentionPosition]
+  );
+
+  // 멘션 선택 처리
+  const handleMentionSelect = useCallback(
+    (memo: MemoNameSearchResult) => {
+      const { newText, newCursorPosition } = insertMention(
+        content,
+        mentionRange.start,
+        mentionRange.end,
+        memo.title,
+        mentionType
+      );
+
+      setContent(newText);
+      setShowMention(false);
+      setMentionQuery('');
+
+      // 커서 위치 복원
+      setTimeout(() => {
+        const textarea = contentTextareaRef.current;
+        if (textarea) {
+          textarea.focus();
+          textarea.setSelectionRange(newCursorPosition, newCursorPosition);
+        }
+      }, 0);
+    },
+    [content, mentionRange, mentionType]
+  );
+
+  // 멘션 닫기
+  const handleMentionClose = useCallback(() => {
+    setShowMention(false);
+    setMentionQuery('');
   }, []);
 
   // 저장 핸들러
@@ -325,15 +435,18 @@ export function MemoDetailPage() {
                 </div>
 
                 {/* 본문 에디터 */}
-                <textarea
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  placeholder="내용을 입력하세요...
+                <div className="relative">
+                  <textarea
+                    ref={contentTextareaRef}
+                    value={content}
+                    onChange={handleContentChange}
+                    placeholder="내용을 입력하세요...
 
 마크다운 문법을 지원합니다.
 @멘션으로 다른 메모와 연결할 수 있습니다."
-                  className="w-full min-h-[400px] bg-transparent border-none focus:outline-none text-gray-300 placeholder-gray-600 resize-none leading-relaxed text-base font-mono"
-                />
+                    className="w-full min-h-[400px] bg-transparent border-none focus:outline-none text-gray-300 placeholder-gray-600 resize-none leading-relaxed text-base font-mono"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -448,6 +561,17 @@ export function MemoDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 멘션 자동완성 드롭다운 */}
+      {showMention && (
+        <MentionAutocomplete
+          query={mentionQuery}
+          position={mentionPosition}
+          onSelect={handleMentionSelect}
+          onClose={handleMentionClose}
+          excludeId={isNew ? undefined : id}
+        />
       )}
     </div>
   );

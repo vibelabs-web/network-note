@@ -9,6 +9,14 @@ from app.schemas.memo import (
     MemoResponse,
     MemoUpdate,
 )
+from app.schemas.connection import (
+    ConnectionCreateRequest,
+    ConnectionDeleteRequest,
+    ConnectionInfo,
+    ConnectionListResponse,
+    MemoNameSearchResult,
+    MemoNameSearchResponse,
+)
 
 __all__ = [
     "ConnectionBase",
@@ -19,4 +27,10 @@ __all__ = [
     "MemoUpdate",
     "MemoResponse",
     "MemoListResponse",
+    "ConnectionCreateRequest",
+    "ConnectionDeleteRequest",
+    "ConnectionInfo",
+    "ConnectionListResponse",
+    "MemoNameSearchResult",
+    "MemoNameSearchResponse",
 ]

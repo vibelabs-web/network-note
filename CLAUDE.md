@@ -334,3 +334,80 @@ Key variables in `.env`:
 - 자동 저장: 2초 디바운싱으로 변경사항 자동 저장
 - 삭제 확인: ConfirmDialog 모달로 삭제 확인
 - 에러 처리: 로딩 상태, 에러 메시지, 재시도 버튼
+
+### [x] Task 3.1: 멘션 파싱 및 연결 생성 API (완료)
+
+**구현 내용:**
+- 멘션 파싱 유틸리티 (`@메모명` 패턴 추출)
+- 연결 생성/삭제 API (양방향 연결 자동 생성)
+- 메모 저장 시 자동 멘션 처리 및 연결 생성
+- 메모명 검색 API (자동완성용)
+- 연결 목록 조회 API
+
+**생성된 핵심 파일:**
+- `backend/app/utils/mention_parser.py` - 멘션 파싱 유틸리티 (extract_mentions, get_mention_diff)
+- `backend/app/api/connections.py` - 연결 CRUD API 라우터
+- `backend/app/schemas/connection.py` - 연결 관련 Pydantic 스키마
+
+**API 엔드포인트:**
+- `POST /api/connections` - 연결 생성 (양방향)
+- `DELETE /api/connections` - 연결 삭제 (양방향)
+- `GET /api/connections/{memo_id}` - 메모의 연결 목록 조회
+- `GET /api/memos/search/names?q=검색어` - 멘션 자동완성용 메모명 검색
+
+**주요 기능:**
+- 멘션 패턴: `@메모명` (한글, 영문, 숫자, 하이픈, 언더스코어 지원)
+- 메모 생성/수정 시 내용에서 멘션 자동 추출
+- 멘션된 메모와 양방향 연결 자동 생성
+- 멘션 삭제 시 해당 연결도 자동 삭제
+- 중복 연결 방지
+
+### [x] Task 3.2: Frontend 멘션 기능 구현 (완료)
+
+**구현 내용:**
+- 멘션 파서 유틸리티 (Frontend)
+- 멘션 자동완성 컴포넌트 (드롭다운 UI)
+- 에디터에서 @ 입력 감지 및 자동완성 통합
+- 마크다운 렌더러에서 멘션을 클릭 가능한 링크로 변환
+- 키보드 네비게이션 (화살표, Enter, Escape)
+
+**생성된 핵심 파일:**
+- `frontend/src/utils/mentionParser.ts` - 멘션 파싱 (extractMentions, getCurrentMention, insertMention)
+- `frontend/src/components/MentionAutocomplete/` - 자동완성 드롭다운 컴포넌트
+- `frontend/src/api/connections.ts` - 연결 API 클라이언트
+- `frontend/src/api/memos.ts` - searchMemoNames 함수 추가
+
+**주요 기능:**
+- `@` 또는 `[[` 입력 시 자동완성 드롭다운 표시
+- 메모명 검색 (300ms 디바운싱)
+- 키보드 탐색: ↑↓ 이동, Enter 선택, Esc 닫기
+- 멘션 선택 시 `@메모제목 ` 또는 `[[메모제목]] ` 형식으로 삽입
+- 마크다운 미리보기에서 멘션 클릭 시 해당 메모로 이동
+- 메모 목록 기반 멘션-ID 매핑
+- `@멘션`과 `[[멘션]]` (Obsidian/Notion 스타일) 두 가지 형식 지원
+
+### [x] Task 4.1: ChromaDB 설정 및 임베딩 서비스 구현 (완료)
+
+**구현 내용:**
+- ChromaDB 클라이언트 설정 (싱글톤 패턴)
+- Sentence Transformers 임베딩 모델 (all-MiniLM-L6-v2, 384차원)
+- 메모 생성/수정/삭제 시 임베딩 자동 처리 (백그라운드)
+- 유사도 검색 함수 구현 (코사인 유사도)
+- 헬스체크 엔드포인트 추가
+
+**생성된 핵심 파일:**
+- `backend/app/services/vector_service.py` - ChromaDB 클라이언트 및 CRUD
+- `backend/app/services/embedding_service.py` - 임베딩 모델 및 변환 함수
+- `backend/requirements.txt` - chromadb, sentence-transformers 추가
+
+**API 엔드포인트 (헬스체크):**
+- `GET /health/vector` - ChromaDB 연결 상태
+- `GET /health/embedding` - 임베딩 모델 로드 상태
+- `GET /health/all` - MongoDB, ChromaDB, 임베딩 모델 전체 상태
+
+**주요 기능:**
+- 메모 생성 시 `BackgroundTasks`로 임베딩 비동기 저장
+- 메모 수정 시 제목/내용 변경되면 임베딩 재생성
+- 메모 삭제 시 ChromaDB에서도 임베딩 삭제
+- 유사도 검색: 쿼리 벡터로 유사 메모 검색 (상위 N개)
+- 메타데이터 저장: 제목, Zettel ID, 내용 미리보기 (500자)
