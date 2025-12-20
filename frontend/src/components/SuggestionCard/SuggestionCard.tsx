@@ -1,6 +1,6 @@
 /**
  * SuggestionCard - 연결 제안 카드 컴포넌트
- * 벡터 유사도 기반 연결 제안을 표시하고 승인/거부할 수 있는 카드
+ * 벡터 유사도 + LLM 기반 연결 제안을 표시하고 승인/거부할 수 있는 카드
  */
 
 import { useState } from 'react';
@@ -30,6 +30,11 @@ function getSimilarityLabel(similarity: number): string {
   return '매우 낮음';
 }
 
+// LLM 평가 여부 확인
+function hasLlmEvaluation(suggestion: SuggestionItem): boolean {
+  return suggestion.llmScore !== undefined && suggestion.llmScore > 0;
+}
+
 export function SuggestionCard({
   suggestion,
   onApprove,
@@ -40,6 +45,7 @@ export function SuggestionCard({
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
   const [showContent, setShowContent] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
   const handleApprove = async () => {
     if (isProcessing || isApproving || isRejecting) return;
@@ -67,32 +73,66 @@ export function SuggestionCard({
 
   const similarityPercent = Math.round(suggestion.similarity * 100);
   const isDisabled = isProcessing || isApproving || isRejecting;
+  const isLlmAnalyzed = hasLlmEvaluation(suggestion);
+
+  // 점수 정보
+  const vectorScore = suggestion.vectorSimilarity ?? suggestion.similarity;
+  const llmScore = suggestion.llmScore ?? 0;
+  const vectorPercent = Math.round(vectorScore * 100);
+  const llmPercent = Math.round(llmScore * 100);
 
   return (
     <div className="bg-[#2d2d2d] border border-[#3c3c3c] rounded-lg p-3 hover:border-[#4c4c4c] transition-colors group">
-      {/* 상단: 제목 및 Zettel ID */}
+      {/* 상단: 제목 및 배지 */}
       <div className="flex items-start justify-between mb-2">
         <div className="flex-1 min-w-0">
-          <button
-            onClick={handleNavigate}
-            className="text-sm font-medium text-gray-200 hover:text-blue-400 transition-colors truncate block w-full text-left"
-            title={suggestion.title}
-          >
-            {suggestion.title}
-          </button>
+          <div className="flex items-center gap-2 mb-0.5">
+            <button
+              onClick={handleNavigate}
+              className="text-sm font-medium text-gray-200 hover:text-blue-400 transition-colors truncate block text-left"
+              title={suggestion.title}
+            >
+              {suggestion.title}
+            </button>
+            {/* LLM 분석 배지 */}
+            {isLlmAnalyzed && (
+              <span className="flex-shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-purple-500/20 text-purple-300 rounded border border-purple-500/30">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+                AI 분석
+              </span>
+            )}
+          </div>
           <div className="text-xs text-gray-500 mt-0.5 font-mono">
             {suggestion.zettelId}
           </div>
         </div>
       </div>
 
-      {/* 유사도 시각화 */}
+      {/* 하이브리드 점수 시각화 */}
       <div className="mb-3">
         <div className="flex items-center justify-between text-xs mb-1">
-          <span className="text-gray-400">유사도</span>
-          <span className={`${getSimilarityColor(suggestion.similarity).replace('bg-', 'text-')}`}>
-            {similarityPercent}% ({getSimilarityLabel(suggestion.similarity)})
+          <span className="text-gray-400">
+            {isLlmAnalyzed ? '하이브리드 점수' : '유사도'}
           </span>
+          <div className="flex items-center gap-2">
+            <span className={`${getSimilarityColor(suggestion.similarity).replace('bg-', 'text-')}`}>
+              {similarityPercent}% ({getSimilarityLabel(suggestion.similarity)})
+            </span>
+            {/* 상세 점수 토글 버튼 */}
+            {isLlmAnalyzed && (
+              <button
+                onClick={() => setShowDetails(!showDetails)}
+                className="text-gray-500 hover:text-gray-300 transition-colors"
+                title="점수 상세 보기"
+              >
+                <svg className={`w-3 h-3 transition-transform ${showDetails ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
         <div className="h-1.5 bg-[#3c3c3c] rounded-full overflow-hidden">
           <div
@@ -100,10 +140,48 @@ export function SuggestionCard({
             style={{ width: `${similarityPercent}%` }}
           />
         </div>
+
+        {/* 상세 점수 (LLM 분석된 경우) */}
+        {isLlmAnalyzed && showDetails && (
+          <div className="mt-2 pt-2 border-t border-[#3c3c3c] space-y-1.5">
+            {/* 벡터 유사도 */}
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-gray-500 w-16">벡터</span>
+              <div className="flex-1 h-1 bg-[#3c3c3c] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-blue-500 transition-all duration-300"
+                  style={{ width: `${vectorPercent}%` }}
+                />
+              </div>
+              <span className="text-gray-400 w-8 text-right">{vectorPercent}%</span>
+            </div>
+            {/* LLM 점수 */}
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-gray-500 w-16">AI</span>
+              <div className="flex-1 h-1 bg-[#3c3c3c] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-purple-500 transition-all duration-300"
+                  style={{ width: `${llmPercent}%` }}
+                />
+              </div>
+              <span className="text-gray-400 w-8 text-right">{llmPercent}%</span>
+            </div>
+            <div className="text-[10px] text-gray-600 mt-1">
+              하이브리드 = 벡터(40%) + AI(60%)
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* 제안 이유 */}
-      <div className="text-xs text-gray-500 mb-3">
+      {/* 제안 이유 (LLM 생성) */}
+      <div className={`text-xs mb-3 ${isLlmAnalyzed ? 'text-gray-400' : 'text-gray-500'}`}>
+        {isLlmAnalyzed && (
+          <span className="inline-flex items-center gap-1 text-purple-400 mr-1">
+            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M8.5 2c1.1 0 2 .9 2 2v1c0 .17.17.34.35.5l.7.7c.6.6.95 1.42.95 2.26V9c0 1-.5 2-1.5 2.5v2c0 .55-.45 1-1 1s-1-.45-1-1v-1.5H8v1.5c0 .55-.45 1-1 1s-1-.45-1-1v-2C5.5 11 5 10 5 9V8.46c0-.84.35-1.66.95-2.26l.7-.7c.18-.16.35-.33.35-.5V4c0-1.1.9-2 2-2zm5.5 0c1.1 0 2 .9 2 2v1c0 .17.17.34.35.5l.7.7c.6.6.95 1.42.95 2.26V9c0 1-.5 2-1.5 2.5v2c0 .55-.45 1-1 1s-1-.45-1-1v-1.5h-.5v1.5c0 .55-.45 1-1 1s-1-.45-1-1v-2c-1-.5-1.5-1.5-1.5-2.5V8.46c0-.84.35-1.66.95-2.26l.7-.7c.18-.16.35-.33.35-.5V4c0-1.1.9-2 2-2z"/>
+            </svg>
+          </span>
+        )}
         {suggestion.reason}
       </div>
 

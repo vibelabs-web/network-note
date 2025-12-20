@@ -529,3 +529,34 @@ Key variables in `.env`:
 2. `processing` - LLM 평가 진행 중 (진행률 10-90%)
 3. `completed` - 완료 (결과 포함)
 4. `failed` - 실패 (오류 메시지 포함)
+
+### [x] Task 5.3: Frontend 고급 제안 UI 구현 (완료)
+
+**구현 내용:**
+- 타입 정의 확장 (RefineRequest, RefineResponse, JobStatusResponse)
+- API 클라이언트 함수 추가 (refineSuggestions, getSuggestionStatus)
+- SuggestionCard 업데이트: LLM 배지, 하이브리드 점수 상세 표시
+- RefineProgress 컴포넌트: 비동기 작업 진행률 UI
+- SuggestionSettings 컴포넌트: AI 분석 토글, 설정 저장
+- SuggestionList 통합: 재평가 버튼, 설정 패널, 상태 표시
+
+**생성된 핵심 파일:**
+- `frontend/src/types/index.ts` - RefineRequest, RefineResponse, JobStatusResponse 타입 추가
+- `frontend/src/api/suggestions.ts` - refineSuggestions, getSuggestionStatus 함수 추가
+- `frontend/src/components/RefineProgress/` - 비동기 작업 진행 상태 컴포넌트
+- `frontend/src/components/SuggestionSettings/` - 제안 설정 컴포넌트
+- `frontend/src/utils/suggestionSettings.ts` - 로컬 스토리지 설정 관리
+
+**UI 기능:**
+- LLM 분석 배지 ("AI 분석") - 보라색 태그로 LLM 평가 제안 표시
+- 하이브리드 점수 상세: 벡터/AI 점수 개별 프로그레스 바
+- AI 재평가 버튼: 현재 제안 목록을 LLM으로 재평가
+- 진행률 표시: 백그라운드 작업의 실시간 진행률
+- 설정 패널: AI 분석 토글, 유사도 임계값, 제안 개수 조절
+- 로컬 스토리지 저장: 설정값 유지
+
+**주요 기능:**
+- 설정 토글: "고급 AI 제안 사용" 온/오프
+- 폴링 로직: 2초 간격으로 작업 상태 확인
+- 완료 시 자동 결과 반영
+- 에러 시 재시도 가능

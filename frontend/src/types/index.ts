@@ -137,6 +137,8 @@ export interface SuggestionItem {
   similarity: number;
   reason: string;
   contentPreview?: string;
+  llmScore?: number;         // LLM 평가 점수
+  vectorSimilarity?: number; // 벡터 유사도 (하이브리드 모드)
 }
 
 // 연결 제안 응답
@@ -154,4 +156,36 @@ export interface SuggestionActionResponse {
   targetId: string;
   action: 'approved' | 'rejected';
   success: boolean;
+}
+
+// 비동기 LLM 재평가 요청
+export interface RefineRequest {
+  memoId: string;
+  candidateIds?: string[];
+  limit?: number;
+  threshold?: number;
+}
+
+// 비동기 LLM 재평가 응답
+export interface RefineResponse {
+  jobId: string;
+  memoId: string;
+  candidateCount: number;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  message: string;
+}
+
+// 작업 상태
+export type JobStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
+// 작업 상태 조회 응답
+export interface JobStatusResponse {
+  jobId: string;
+  status: JobStatus;
+  progress: number;
+  memoId?: string;
+  result?: SuggestionListResponse;
+  error?: string;
+  createdAt?: string;
+  completedAt?: string;
 }
