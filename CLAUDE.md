@@ -12,8 +12,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Framework**: FastAPI (Python 3.11+)
 - **Database**: MongoDB (port 27017) for note data
 - **Vector DB**: ChromaDB for embeddings
-- **LLM**: Ollama (port 11434) with Llama 3.2 3B
-- **Embedding**: all-MiniLM-L6-v2 (Sentence Transformers)
+- **LLM**: Ollama (port 11434) with EXAONE 3.5 2.4B (한국어 최적화)
+- **Embedding**: paraphrase-multilingual-MiniLM-L12-v2 (다국어 지원, 384차원)
 - **Package Manager**: Poetry
 
 ### Frontend (TypeScript)
@@ -46,7 +46,7 @@ docker compose down
 docker compose down -v           # remove volumes too
 
 # Download LLM model (first time only)
-docker compose exec ollama ollama pull llama3.2:3b
+docker compose exec ollama ollama pull exaone3.5:2.4b
 
 # Access MongoDB shell
 docker compose exec mongodb mongosh -u admin -p changeme
@@ -144,8 +144,8 @@ Nodes sized by connection count:
 Key variables in `.env`:
 - `MONGO_ROOT_USERNAME`, `MONGO_ROOT_PASSWORD`
 - `MONGODB_DB_NAME` (default: star_note)
-- `OLLAMA_MODEL` (default: llama3.2:3b)
-- `EMBEDDING_MODEL` (default: all-MiniLM-L6-v2)
+- `OLLAMA_MODEL` (default: exaone3.5:2.4b)
+- `EMBEDDING_MODEL` (default: paraphrase-multilingual-MiniLM-L12-v2)
 - `VITE_API_URL` (default: http://localhost:8000)
 
 ## Development Notes
@@ -390,7 +390,7 @@ Key variables in `.env`:
 
 **구현 내용:**
 - ChromaDB 클라이언트 설정 (싱글톤 패턴)
-- Sentence Transformers 임베딩 모델 (all-MiniLM-L6-v2, 384차원)
+- Sentence Transformers 임베딩 모델 (paraphrase-multilingual-MiniLM-L12-v2, 384차원, 다국어 지원)
 - 메모 생성/수정/삭제 시 임베딩 자동 처리 (백그라운드)
 - 유사도 검색 함수 구현 (코사인 유사도)
 - 헬스체크 엔드포인트 추가
@@ -444,3 +444,27 @@ Key variables in `.env`:
 - 거부된 제안 자동 제외 (rejection_history)
 - 승인 시 explicit 타입 양방향 연결 생성
 - 배치 처리로 전체 메모 제안 일괄 생성
+
+### [x] Task 4.3: Frontend 연결 제안 UI 구현 (완료)
+
+**구현 내용:**
+- 제안 API 클라이언트 함수 (getSuggestions, approveSuggestion, rejectSuggestion)
+- SuggestionCard 컴포넌트: 개별 제안 카드 UI (유사도 시각화, 승인/거부 버튼)
+- SuggestionList 컴포넌트: 제안 목록 관리 (로딩, 에러, 빈 상태 처리)
+- MemoDetailPage에 제안 섹션 통합 (메타데이터 패널 하단)
+- 연결 생성 시 메모 및 제안 목록 자동 새로고침
+
+**생성된 핵심 파일:**
+- `frontend/src/api/suggestions.ts` - 제안 API 클라이언트
+- `frontend/src/types/index.ts` - SuggestionItem, SuggestionListResponse 타입 추가
+- `frontend/src/components/SuggestionCard/` - 제안 카드 컴포넌트
+- `frontend/src/components/SuggestionList/` - 제안 목록 컴포넌트
+- `frontend/src/pages/MemoDetailPage.tsx` - 제안 섹션 통합
+
+**UI 기능:**
+- 유사도 프로그레스 바 (색상으로 수준 표시: 높음/중간/낮음)
+- 내용 미리보기 토글
+- 승인/거부 버튼 (로딩 상태 표시)
+- 스켈레톤 로딩 UI
+- 빈 상태 안내 메시지
+- 새로고침 버튼

@@ -10,7 +10,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001';
 // Axios 인스턴스 생성
 export const apiClient = axios.create({
   baseURL: API_URL,
-  timeout: 10000,
+  timeout: 60000, // LLM 평가 시간 고려 (Solar Pro 22B: ~20초/건)
   headers: {
     'Content-Type': 'application/json',
   },

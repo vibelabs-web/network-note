@@ -29,8 +29,8 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://ollama:11434"
     ollama_model: str = "llama3.2:3b"
 
-    # Embedding Model
-    embedding_model: str = "all-MiniLM-L6-v2"
+    # Embedding Model (다국어 지원)
+    embedding_model: str = "paraphrase-multilingual-MiniLM-L12-v2"
 
     # API Configuration
     api_host: str = "0.0.0.0"

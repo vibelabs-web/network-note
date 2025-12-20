@@ -529,16 +529,73 @@ async def get_memo_suggestions(
     memo_id: str,
     limit: int = Query(10, ge=1, le=20, description="제안 개수"),
     threshold: float = Query(0.5, ge=0.0, le=1.0, description="유사도 임계값"),
+    use_llm: bool = Query(True, alias="useLlm", description="LLM 평가 사용 여부"),
 ) -> SuggestionListResponse:
     """
     특정 메모에 대한 연결 제안을 가져옵니다.
 
-    벡터 유사도 기반으로 연결할 만한 메모를 추천합니다.
+    벡터 유사도로 후보를 선정하고, LLM으로 연결 가치를 평가합니다.
+    하이브리드 점수 = 벡터 유사도(40%) + LLM 점수(60%)
 
     - **memo_id**: 제안을 받을 메모 ID
     - **limit**: 제안 개수 (기본값: 10, 최대: 20)
     - **threshold**: 유사도 임계값 (기본값: 0.5)
+    - **use_llm**: LLM 평가 사용 여부 (기본값: true)
     """
     # 순환 import 방지를 위해 내부에서 import
     from app.api.suggestions import get_memo_suggestions as _get_memo_suggestions
-    return await _get_memo_suggestions(memo_id, limit, threshold)
+    return await _get_memo_suggestions(memo_id, limit, threshold, use_llm)
+
+
+@router.post("/embeddings/rebuild")
+async def rebuild_all_embeddings(
+    background_tasks: BackgroundTasks,
+) -> dict:
+    """
+    모든 메모의 임베딩을 재생성합니다.
+    ChromaDB 초기화 후 또는 임베딩 모델 변경 시 사용합니다.
+    """
+    db = get_database()
+
+    # 모든 메모 조회
+    memos = list(db.memos.find({}, {"_id": 1, "title": 1, "content": 1, "zettel_id": 1}))
+
+    if not memos:
+        return {"message": "재생성할 메모가 없습니다.", "count": 0}
+
+    def rebuild_embeddings_task(memo_list: list):
+        """백그라운드에서 임베딩 재생성."""
+        success_count = 0
+        for memo in memo_list:
+            try:
+                memo_id = str(memo["_id"])
+                title = memo.get("title", "")
+                content = memo.get("content", "")
+                zettel_id = memo.get("zettel_id", "")
+
+                # 임베딩 생성
+                embedding = create_memo_embedding(title, content)
+
+                # ChromaDB에 저장
+                add_embedding(
+                    doc_id=memo_id,
+                    embedding=embedding,
+                    metadata={
+                        "title": title,
+                        "zettel_id": zettel_id,
+                        "content_preview": content[:500] if content else "",
+                    },
+                )
+                success_count += 1
+            except Exception as e:
+                print(f"임베딩 재생성 실패 (memo_id={memo.get('_id')}): {e}")
+
+        print(f"임베딩 재생성 완료: {success_count}/{len(memo_list)}")
+
+    # 백그라운드에서 처리
+    background_tasks.add_task(rebuild_embeddings_task, memos)
+
+    return {
+        "message": f"{len(memos)}개 메모의 임베딩 재생성이 시작되었습니다.",
+        "count": len(memos),
+    }

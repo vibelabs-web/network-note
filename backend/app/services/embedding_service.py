@@ -1,7 +1,8 @@
 """
 Embedding Service.
 텍스트를 벡터로 변환하는 임베딩 서비스입니다.
-Sentence Transformers (all-MiniLM-L6-v2) 모델을 사용합니다.
+Sentence Transformers (paraphrase-multilingual-MiniLM-L12-v2) 모델을 사용합니다.
+한국어를 포함한 50+ 언어를 지원합니다.
 """
 
 from sentence_transformers import SentenceTransformer
@@ -17,10 +18,11 @@ def get_model() -> SentenceTransformer:
     Get or create embedding model instance.
     싱글톤 패턴으로 모델 인스턴스를 관리합니다.
 
-    모델 정보 (all-MiniLM-L6-v2):
+    모델 정보 (paraphrase-multilingual-MiniLM-L12-v2):
     - 출력 차원: 384
-    - 최대 입력 토큰: 256
-    - 빠르고 가벼운 모델
+    - 최대 입력 토큰: 128
+    - 50+ 언어 지원 (한국어, 영어, 일본어 등)
+    - 빠르고 가벼운 다국어 모델
     """
     global _model
     if _model is None:

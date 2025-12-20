@@ -8,6 +8,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useMemoStore } from '@/stores/memoStore';
 import { MarkdownPreview } from '@/components/MarkdownPreview';
 import { MentionAutocomplete } from '@/components/MentionAutocomplete';
+import { SuggestionList } from '@/components/SuggestionList';
 import { getCurrentMention, insertMention, type MentionType } from '@/utils/mentionParser';
 import type { MemoNameSearchResult } from '@/types';
 
@@ -61,6 +62,9 @@ export function MemoDetailPage() {
   const [mentionPosition, setMentionPosition] = useState({ top: 0, left: 0 });
   const [mentionRange, setMentionRange] = useState({ start: 0, end: 0 });
   const [mentionType, setMentionType] = useState<MentionType>('at');
+
+  // 제안 새로고침 트리거
+  const [suggestionRefreshKey, setSuggestionRefreshKey] = useState(0);
 
   // 메모 로딩 및 폼 초기화
   useEffect(() => {
@@ -231,6 +235,16 @@ export function MemoDetailPage() {
     setShowMention(false);
     setMentionQuery('');
   }, []);
+
+  // 연결 생성 시 새로고침
+  const handleConnectionCreated = useCallback(() => {
+    // 메모 다시 로드하여 connections 업데이트
+    if (id && !isNew) {
+      fetchMemo(id);
+    }
+    // 제안 목록도 새로고침
+    setSuggestionRefreshKey(prev => prev + 1);
+  }, [id, isNew, fetchMemo]);
 
   // 저장 핸들러
   const handleSave = useCallback(async () => {
@@ -488,14 +502,15 @@ export function MemoDetailPage() {
           </div>
         )}
 
-        {/* 메타데이터 패널 */}
+        {/* 메타데이터 및 제안 패널 */}
         {showMetadata && currentMemo && !isNew && (
-          <div className="w-64 bg-[#252526] border-l border-[#3c3c3c] p-4 overflow-y-auto flex-shrink-0">
+          <div className="w-72 bg-[#252526] border-l border-[#3c3c3c] p-4 overflow-y-auto flex-shrink-0">
+            {/* 메타데이터 섹션 */}
             <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-4">
               메타데이터
             </h3>
 
-            <div className="space-y-4 text-sm">
+            <div className="space-y-4 text-sm mb-6">
               <div>
                 <div className="text-xs text-gray-500 mb-1">Zettel ID</div>
                 <div className="text-gray-300 font-mono text-xs">{currentMemo.zettel_id}</div>
@@ -533,6 +548,16 @@ export function MemoDetailPage() {
                 </div>
               )}
             </div>
+
+            {/* 구분선 */}
+            <div className="border-t border-[#3c3c3c] my-4" />
+
+            {/* 연결 제안 섹션 */}
+            <SuggestionList
+              key={suggestionRefreshKey}
+              memoId={currentMemo.id}
+              onConnectionCreated={handleConnectionCreated}
+            />
           </div>
         )}
       </div>

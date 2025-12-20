@@ -23,6 +23,7 @@ from app.services.vector_service import (
     get_collection_count,
 )
 from app.services.embedding_service import check_model_loaded
+from app.services.llm_service import check_ollama_health
 
 
 @asynccontextmanager
@@ -173,20 +174,44 @@ async def health_embedding():
         }
 
 
+@app.get("/health/llm")
+async def health_llm():
+    """
+    Ollama LLM 서비스 헬스체크.
+    LLM 연결 상태와 모델 로드 여부를 확인합니다.
+    """
+    llm_status = await check_ollama_health()
+
+    if llm_status["status"] == "healthy":
+        return {
+            "status": "healthy",
+            "model": llm_status.get("model", "unknown"),
+            "model_loaded": llm_status.get("model_loaded", False),
+            "available_models": llm_status.get("available_models", []),
+        }
+    else:
+        return {
+            "status": "unhealthy",
+            "error": llm_status.get("error", "Unknown error"),
+        }
+
+
 @app.get("/health/all")
 async def health_all():
     """
     전체 서비스 헬스체크.
-    MongoDB, ChromaDB, 임베딩 모델 상태를 모두 확인합니다.
+    MongoDB, ChromaDB, 임베딩 모델, Ollama LLM 상태를 모두 확인합니다.
     """
     db_status = check_connection()
     chroma_status = check_chroma_connection()
     model_status = check_model_loaded()
+    llm_status = await check_ollama_health()
 
     all_healthy = (
         db_status["connected"]
         and chroma_status["connected"]
         and model_status["loaded"]
+        and llm_status["status"] == "healthy"
     )
 
     return {
@@ -195,9 +220,12 @@ async def health_all():
             "mongodb": "connected" if db_status["connected"] else "disconnected",
             "chromadb": "connected" if chroma_status["connected"] else "disconnected",
             "embedding_model": "loaded" if model_status["loaded"] else "not loaded",
+            "ollama_llm": "healthy" if llm_status["status"] == "healthy" else "unhealthy",
         },
         "details": {
             "chromadb_collection_count": get_collection_count() if chroma_status["connected"] else 0,
             "embedding_dimension": model_status.get("embedding_dimension", 0) if model_status["loaded"] else 0,
+            "llm_model": llm_status.get("model", "unknown"),
+            "llm_model_loaded": llm_status.get("model_loaded", False),
         },
     }

@@ -35,27 +35,6 @@ services:
       - star-note-network
     # ChromaDB는 내부 네트워크에서만 접근
 
-  # Ollama 서비스 (LLM)
-  ollama:
-    image: ollama/ollama:latest
-    container_name: star-note-ollama
-    restart: unless-stopped
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    networks:
-      - star-note-network
-    deploy:
-      resources:
-        reservations:
-          memory: 4G
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
   # Backend 서비스 (FastAPI)
   backend:
     build:
@@ -72,9 +51,10 @@ services:
       - MONGODB_DB_NAME=${MONGODB_DB_NAME:-star_note}
       - CHROMA_DB_HOST=chromadb
       - CHROMA_DB_PORT=8000
-      - OLLAMA_BASE_URL=http://ollama:11434
-      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2:3b}
-      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-all-MiniLM-L6-v2}
+      # Ollama는 호스트에서 실행 (host.docker.internal로 접근)
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-solar-pro:22b}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-paraphrase-multilingual-MiniLM-L12-v2}
       - API_HOST=0.0.0.0
       - API_PORT=8001
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:5174}
@@ -83,8 +63,6 @@ services:
       mongodb:
         condition: service_healthy
       chromadb:
-        condition: service_started
-      ollama:
         condition: service_started
     networks:
       - star-note-network
@@ -117,8 +95,6 @@ volumes:
   mongodb_config:
     driver: local
   chromadb_data:
-    driver: local
-  ollama_data:
     driver: local
 
 networks:

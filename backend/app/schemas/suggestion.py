@@ -14,9 +14,11 @@ class SuggestionItem(BaseModel):
     memo_id: str = Field(..., alias="memoId", description="제안된 메모 ID")
     title: str = Field(..., description="제안된 메모 제목")
     zettel_id: str = Field(..., alias="zettelId", description="제안된 메모 Zettel ID")
-    similarity: float = Field(..., ge=0.0, le=1.0, description="유사도 점수 (0.0 ~ 1.0)")
-    reason: str = Field("벡터 유사도 기반 제안", description="제안 이유")
+    similarity: float = Field(..., ge=0.0, le=1.0, description="하이브리드 점수 (0.0 ~ 1.0)")
+    reason: str = Field("벡터 유사도 기반 제안", description="제안 이유 (LLM 생성)")
     content_preview: Optional[str] = Field(None, alias="contentPreview", description="내용 미리보기")
+    llm_score: Optional[float] = Field(None, alias="llmScore", ge=0.0, le=1.0, description="LLM 평가 점수")
+    vector_similarity: Optional[float] = Field(None, alias="vectorSimilarity", ge=0.0, le=1.0, description="벡터 유사도")
 
     class Config:
         populate_by_name = True

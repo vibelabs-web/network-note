@@ -128,3 +128,30 @@ export interface ConnectionListResponse {
   connections: ConnectionInfo[];
   total: number;
 }
+
+// 연결 제안 항목
+export interface SuggestionItem {
+  memoId: string;
+  title: string;
+  zettelId: string;
+  similarity: number;
+  reason: string;
+  contentPreview?: string;
+}
+
+// 연결 제안 응답
+export interface SuggestionListResponse {
+  suggestions: SuggestionItem[];
+  sourceMemoId: string;
+  threshold: number;
+  total: number;
+}
+
+// 제안 승인/거부 응답
+export interface SuggestionActionResponse {
+  message: string;
+  sourceId: string;
+  targetId: string;
+  action: 'approved' | 'rejected';
+  success: boolean;
+}

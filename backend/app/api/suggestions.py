@@ -1,6 +1,7 @@
 """
 Suggestion API Routes.
 벡터 기반 연결 제안 API 엔드포인트 정의.
+LLM 평가를 통한 하이브리드 스코어링 지원.
 """
 
 from datetime import datetime
@@ -23,6 +24,7 @@ from app.schemas.suggestion import (
     SuggestionRejectRequest,
 )
 from app.services.embedding_service import create_memo_embedding
+from app.services.llm_service import batch_evaluate_connections
 from app.services.mongo_service import get_database
 from app.services.vector_service import get_embedding, search_similar
 
@@ -44,13 +46,16 @@ async def get_memo_suggestions(
     memo_id: str,
     limit: int = 10,
     threshold: float = 0.5,
+    use_llm: bool = True,
 ) -> SuggestionListResponse:
     """
     특정 메모에 대한 연결 제안을 가져옵니다.
+    벡터 유사도로 후보를 선정하고, LLM으로 연결 가치를 평가합니다.
 
     - **memo_id**: 제안을 받을 메모 ID
     - **limit**: 제안 개수 (기본값: 10, 최대: 20)
     - **threshold**: 유사도 임계값 (기본값: 0.5)
+    - **use_llm**: LLM 평가 사용 여부 (기본값: True)
     """
     db = get_database()
     oid = validate_object_id(memo_id, "memo_id")
@@ -85,32 +90,87 @@ async def get_memo_suggestions(
     # 제외할 ID (자기 자신 + 이미 연결 + 거부된 제안)
     exclude_ids = [memo_id] + connected_ids + rejected_ids
 
-    # ChromaDB에서 유사한 메모 검색
-    # threshold 이상의 결과만 필터링하기 위해 더 많이 검색
+    # ChromaDB에서 유사한 메모 검색 (LLM 평가를 위해 더 많이 검색)
+    search_limit = limit * 3 if use_llm else limit * 2
     similar_docs = search_similar(
         query_embedding=embedding,
-        n_results=limit * 2,  # 여유 있게 검색
+        n_results=search_limit,
         exclude_ids=exclude_ids,
     )
 
-    # 유사도 임계값 필터링 및 제안 목록 구성
-    suggestions = []
-    for doc in similar_docs:
-        if doc["similarity"] < threshold:
-            continue
+    # 벡터 임계값 필터링
+    vector_candidates = [doc for doc in similar_docs if doc["similarity"] >= threshold]
 
-        if len(suggestions) >= limit:
-            break
+    if not vector_candidates:
+        return SuggestionListResponse(
+            suggestions=[],
+            sourceMemoId=memo_id,
+            threshold=threshold,
+            total=0,
+        )
 
-        metadata = doc.get("metadata", {})
-        suggestions.append(SuggestionItem(
-            memoId=doc["id"],
-            title=metadata.get("title", "제목 없음"),
-            zettelId=metadata.get("zettel_id", ""),
-            similarity=round(doc["similarity"], 4),
-            reason="벡터 유사도 기반 제안",
-            contentPreview=metadata.get("content_preview", ""),
-        ))
+    # LLM 평가 사용 시 하이브리드 스코어링
+    if use_llm and vector_candidates:
+        # 후보 메모 상세 정보 조회 (LLM 평가용)
+        candidates_for_llm = []
+        for doc in vector_candidates[:limit * 2]:  # LLM 평가할 후보 제한
+            candidate_oid = ObjectId(doc["id"])
+            candidate_memo = db.memos.find_one({"_id": candidate_oid})
+            if candidate_memo:
+                candidates_for_llm.append({
+                    "id": doc["id"],
+                    "title": candidate_memo.get("title", ""),
+                    "content": candidate_memo.get("content", ""),
+                    "zettel_id": candidate_memo.get("zettel_id", ""),
+                    "similarity": doc["similarity"],
+                })
+
+        # LLM 배치 평가 (Solar Pro 22B 기준 약 20초/건)
+        evaluated_results = await batch_evaluate_connections(
+            source_memo={
+                "title": memo.get("title", ""),
+                "content": memo.get("content", ""),
+            },
+            candidates=candidates_for_llm,
+            timeout_per_eval=60.0,
+        )
+
+        # 하이브리드 점수 기준 필터링 및 정렬
+        suggestions = []
+        for result in evaluated_results:
+            # LLM이 연결 추천하지 않으면 제외 (단, 에러 시 벡터 기준으로 포함)
+            if not result.get("connected") and not result.get("error"):
+                continue
+
+            if len(suggestions) >= limit:
+                break
+
+            suggestions.append(SuggestionItem(
+                memoId=result["id"],
+                title=result.get("title", "제목 없음"),
+                zettelId=result.get("zettel_id", ""),
+                similarity=round(result.get("hybrid_score", result.get("vector_similarity", 0)), 4),
+                reason=result.get("reason", "AI 연결 제안"),
+                contentPreview=result.get("content_preview", ""),
+                llmScore=round(result.get("llm_score", 0), 4),
+                vectorSimilarity=round(result.get("vector_similarity", 0), 4),
+            ))
+    else:
+        # LLM 미사용 시 기존 벡터 기반 로직
+        suggestions = []
+        for doc in vector_candidates:
+            if len(suggestions) >= limit:
+                break
+
+            metadata = doc.get("metadata", {})
+            suggestions.append(SuggestionItem(
+                memoId=doc["id"],
+                title=metadata.get("title", "제목 없음"),
+                zettelId=metadata.get("zettel_id", ""),
+                similarity=round(doc["similarity"], 4),
+                reason="벡터 유사도 기반 제안",
+                contentPreview=metadata.get("content_preview", ""),
+            ))
 
     return SuggestionListResponse(
         suggestions=suggestions,
@@ -125,17 +185,20 @@ async def get_suggestions_for_memo(
     memo_id: str,
     limit: int = Query(10, ge=1, le=20, description="제안 개수"),
     threshold: float = Query(0.5, ge=0.0, le=1.0, description="유사도 임계값"),
+    use_llm: bool = Query(True, alias="useLlm", description="LLM 평가 사용 여부"),
 ) -> SuggestionListResponse:
     """
     특정 메모에 대한 연결 제안을 가져옵니다.
 
-    벡터 유사도 기반으로 연결할 만한 메모를 추천합니다.
+    벡터 유사도로 후보를 선정하고, LLM으로 연결 가치를 평가합니다.
+    하이브리드 점수 = 벡터 유사도(40%) + LLM 점수(60%)
 
     - **memo_id**: 제안을 받을 메모 ID
     - **limit**: 제안 개수 (기본값: 10, 최대: 20)
     - **threshold**: 유사도 임계값 (기본값: 0.5)
+    - **use_llm**: LLM 평가 사용 여부 (기본값: true)
     """
-    return await get_memo_suggestions(memo_id, limit, threshold)
+    return await get_memo_suggestions(memo_id, limit, threshold, use_llm)
 
 
 @router.post("/approve", response_model=SuggestionActionResponse)
