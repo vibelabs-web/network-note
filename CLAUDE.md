@@ -468,3 +468,34 @@ Key variables in `.env`:
 - 스켈레톤 로딩 UI
 - 빈 상태 안내 메시지
 - 새로고침 버튼
+
+### [x] Task 5.1: Ollama 통합 및 LLM 서비스 구현 (완료)
+
+**구현 내용:**
+- Ollama API 클라이언트 설정 (httpx 비동기 클라이언트)
+- LLM 연결 평가 프롬프트 설계 (한국어, JSON 응답 형식)
+- 단일/배치 연결 평가 함수 구현
+- 하이브리드 스코어링 시스템 (벡터 40% + LLM 60%)
+- EXAONE 3.5 호환 응답 파싱 (thought 태그 처리)
+- Ollama 헬스체크 엔드포인트 추가
+
+**생성된 핵심 파일:**
+- `backend/app/services/llm_service.py` - LLM 평가 서비스
+- `backend/app/main.py` - `/health/llm`, `/health/all` 엔드포인트 추가
+
+**주요 함수:**
+- `evaluate_connection(title_a, content_a, title_b, content_b)` - 두 메모 간 연결 평가
+- `batch_evaluate_connections(source_memo, candidates)` - 배치 연결 평가
+- `parse_llm_response(response_text)` - LLM 응답 JSON 파싱
+- `check_ollama_health()` - Ollama 서비스 상태 확인
+
+**API 엔드포인트:**
+- `GET /health/llm` - Ollama 연결 및 모델 로드 상태
+- `GET /health/all` - 전체 서비스 상태 (MongoDB, ChromaDB, Embedding, LLM)
+
+**하이브리드 RAG 구조:**
+1. ChromaDB 벡터 검색으로 후보 메모 선정 (limit * 3개)
+2. 벡터 유사도 임계값으로 1차 필터링
+3. LLM으로 top 10~20개 후보만 평가 (효율성)
+4. 하이브리드 점수 = 벡터 유사도(40%) + LLM 점수(60%)
+5. `connected=true`인 결과만 최종 제안
