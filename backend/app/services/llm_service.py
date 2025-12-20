@@ -163,28 +163,61 @@ async def batch_evaluate_connections(
     source_memo: dict,
     candidates: list[dict],
     timeout_per_eval: float = 60.0,
+    use_cache: bool = True,
 ) -> list[dict]:
     """
     여러 후보 메모에 대해 연결 가치를 배치 평가합니다.
+    캐시가 있으면 캐시된 결과를 사용합니다.
 
     Args:
-        source_memo: 소스 메모 {"title": str, "content": str}
+        source_memo: 소스 메모 {"id": str, "title": str, "content": str}
         candidates: 후보 메모 목록 [{"id": str, "title": str, "content": str, "similarity": float}, ...]
         timeout_per_eval: 각 평가의 타임아웃
+        use_cache: 캐시 사용 여부 (기본값: True)
 
     Returns:
         평가 결과 목록 (similarity와 llm_score 포함)
     """
+    from app.services.job_service import get_cached_evaluation, save_evaluation_cache
+
     results = []
+    source_id = source_memo.get("id", "")
 
     for candidate in candidates:
-        eval_result = await evaluate_connection(
-            title_a=source_memo.get("title", ""),
-            content_a=source_memo.get("content", ""),
-            title_b=candidate.get("title", ""),
-            content_b=candidate.get("content", ""),
-            timeout=timeout_per_eval,
-        )
+        candidate_id = candidate.get("id", "")
+        cached = None
+
+        # 캐시 확인
+        if use_cache and source_id and candidate_id:
+            cached = get_cached_evaluation(source_id, candidate_id)
+
+        if cached:
+            # 캐시된 결과 사용
+            eval_result = {
+                "score": cached["score"],
+                "reason": cached["reason"],
+                "connected": cached["connected"],
+                "error": None,
+            }
+        else:
+            # LLM 평가 수행
+            eval_result = await evaluate_connection(
+                title_a=source_memo.get("title", ""),
+                content_a=source_memo.get("content", ""),
+                title_b=candidate.get("title", ""),
+                content_b=candidate.get("content", ""),
+                timeout=timeout_per_eval,
+            )
+
+            # 캐시 저장 (에러 없을 때만)
+            if use_cache and source_id and candidate_id and not eval_result.get("error"):
+                save_evaluation_cache(
+                    source_id=source_id,
+                    target_id=candidate_id,
+                    score=eval_result.get("score", 0.0),
+                    reason=eval_result.get("reason", ""),
+                    connected=eval_result.get("connected", False),
+                )
 
         # 하이브리드 점수 계산 (벡터 유사도 40% + LLM 점수 60%)
         vector_similarity = candidate.get("similarity", 0.0)
@@ -202,6 +235,7 @@ async def batch_evaluate_connections(
             "reason": eval_result.get("reason", ""),
             "connected": eval_result.get("connected", False),
             "error": eval_result.get("error"),
+            "cached": cached is not None,
         })
 
     # 하이브리드 점수로 정렬

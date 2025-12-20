@@ -499,3 +499,33 @@ Key variables in `.env`:
 3. LLM으로 top 10~20개 후보만 평가 (효율성)
 4. 하이브리드 점수 = 벡터 유사도(40%) + LLM 점수(60%)
 5. `connected=true`인 결과만 최종 제안
+
+### [x] Task 5.2: 하이브리드 연결 제안 시스템 구현 (완료)
+
+**구현 내용:**
+- 비동기 LLM 재평가 API (`POST /api/suggestions/refine`)
+- 작업 상태 조회 API (`GET /api/suggestions/status/{job_id}`)
+- LLM 평가 결과 캐싱 시스템 (MongoDB, TTL 24시간)
+- 작업 상태 관리 (인메모리, TTL 1시간)
+- 캐시 통계 조회 API (`GET /api/suggestions/cache/stats`)
+
+**생성된 핵심 파일:**
+- `backend/app/services/job_service.py` - 작업 상태 관리 및 캐시 서비스
+- `backend/app/schemas/suggestion.py` - RefineRequest, RefineResponse, JobStatusResponse 추가
+
+**새로운 API 엔드포인트:**
+- `POST /api/suggestions/refine` - 비동기 LLM 재평가 시작 (작업 ID 반환)
+- `GET /api/suggestions/status/{job_id}` - 작업 상태 및 결과 조회
+- `GET /api/suggestions/cache/stats` - 캐시 통계
+
+**캐싱 전략:**
+- 같은 메모 쌍의 LLM 평가는 24시간 동안 캐시됨
+- 캐시 키: 양방향 정렬된 메모 ID 조합
+- MongoDB TTL 인덱스로 자동 만료
+- 재평가 시 캐시 우선 조회로 성능 최적화
+
+**작업 상태 흐름:**
+1. `pending` - 작업 생성됨
+2. `processing` - LLM 평가 진행 중 (진행률 10-90%)
+3. `completed` - 완료 (결과 포함)
+4. `failed` - 실패 (오류 메시지 포함)

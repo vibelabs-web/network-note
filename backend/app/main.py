@@ -23,6 +23,7 @@ from app.services.vector_service import (
     get_collection_count,
 )
 from app.services.embedding_service import check_model_loaded
+from app.services.job_service import ensure_cache_indexes
 from app.services.llm_service import check_ollama_health
 
 
@@ -43,6 +44,13 @@ async def lifespan(app: FastAPI):
         print(f"MongoDB indexes created: {index_result['count']} indexes")
     except Exception as e:
         print(f"Warning: Failed to create indexes: {e}")
+
+    # LLM 평가 캐시 인덱스 생성
+    try:
+        cache_index_result = ensure_cache_indexes()
+        print(f"LLM cache indexes created: {cache_index_result['indexes_created']} indexes")
+    except Exception as e:
+        print(f"Warning: Failed to create cache indexes: {e}")
 
     yield
 

@@ -17,6 +17,9 @@ from app.schemas.suggestion import (
     BatchSuggestionRequest,
     BatchSuggestionResponse,
     BatchSuggestionResult,
+    JobStatusResponse,
+    RefineRequest,
+    RefineResponse,
     SuggestionActionResponse,
     SuggestionApproveRequest,
     SuggestionItem,
@@ -24,6 +27,14 @@ from app.schemas.suggestion import (
     SuggestionRejectRequest,
 )
 from app.services.embedding_service import create_memo_embedding
+from app.services.job_service import (
+    create_job,
+    get_cached_evaluation,
+    get_cache_stats,
+    get_job,
+    save_evaluation_cache,
+    update_job,
+)
 from app.services.llm_service import batch_evaluate_connections
 from app.services.mongo_service import get_database
 from app.services.vector_service import get_embedding, search_similar
@@ -125,14 +136,16 @@ async def get_memo_suggestions(
                     "similarity": doc["similarity"],
                 })
 
-        # LLM 배치 평가 (Solar Pro 22B 기준 약 20초/건)
+        # LLM 배치 평가 (캐시 활용)
         evaluated_results = await batch_evaluate_connections(
             source_memo={
+                "id": memo_id,
                 "title": memo.get("title", ""),
                 "content": memo.get("content", ""),
             },
             candidates=candidates_for_llm,
             timeout_per_eval=60.0,
+            use_cache=True,
         )
 
         # 하이브리드 점수 기준 필터링 및 정렬
@@ -505,3 +518,291 @@ async def batch_generate_suggestions(
         totalMemos=len(memo_ids),
         totalSuggestions=total_suggestions,
     )
+
+
+# ============================================
+# 비동기 LLM 재평가 API (Task 5.2)
+# ============================================
+
+async def run_refine_job(
+    job_id: str,
+    memo_id: str,
+    candidates: list[dict],
+    source_memo: dict,
+) -> None:
+    """
+    백그라운드에서 LLM 재평가를 수행합니다.
+    """
+    try:
+        update_job(job_id, status="processing", progress=10)
+
+        total = len(candidates)
+        results = []
+
+        for i, candidate in enumerate(candidates):
+            # 캐시 확인
+            cached = get_cached_evaluation(memo_id, candidate["id"])
+            if cached:
+                # 캐시된 결과 사용
+                vector_similarity = candidate.get("similarity", 0.0)
+                llm_score = cached["score"]
+                hybrid_score = (vector_similarity * 0.4) + (llm_score * 0.6)
+
+                results.append({
+                    "id": candidate["id"],
+                    "title": candidate.get("title", ""),
+                    "zettel_id": candidate.get("zettel_id", ""),
+                    "content_preview": candidate.get("content", "")[:200],
+                    "vector_similarity": vector_similarity,
+                    "llm_score": llm_score,
+                    "hybrid_score": hybrid_score,
+                    "reason": cached["reason"],
+                    "connected": cached["connected"],
+                    "cached": True,
+                })
+            else:
+                # LLM 평가 수행
+                from app.services.llm_service import evaluate_connection
+
+                eval_result = await evaluate_connection(
+                    title_a=source_memo.get("title", ""),
+                    content_a=source_memo.get("content", ""),
+                    title_b=candidate.get("title", ""),
+                    content_b=candidate.get("content", ""),
+                    timeout=60.0,
+                )
+
+                # 캐시 저장
+                if not eval_result.get("error"):
+                    save_evaluation_cache(
+                        source_id=memo_id,
+                        target_id=candidate["id"],
+                        score=eval_result.get("score", 0.0),
+                        reason=eval_result.get("reason", ""),
+                        connected=eval_result.get("connected", False),
+                    )
+
+                vector_similarity = candidate.get("similarity", 0.0)
+                llm_score = eval_result.get("score", 0.0)
+                hybrid_score = (vector_similarity * 0.4) + (llm_score * 0.6)
+
+                results.append({
+                    "id": candidate["id"],
+                    "title": candidate.get("title", ""),
+                    "zettel_id": candidate.get("zettel_id", ""),
+                    "content_preview": candidate.get("content", "")[:200],
+                    "vector_similarity": vector_similarity,
+                    "llm_score": llm_score,
+                    "hybrid_score": hybrid_score,
+                    "reason": eval_result.get("reason", ""),
+                    "connected": eval_result.get("connected", False),
+                    "cached": False,
+                })
+
+            # 진행률 업데이트
+            progress = int(10 + (i + 1) / total * 80)
+            update_job(job_id, progress=progress)
+
+        # 결과 정렬 (하이브리드 점수 기준)
+        results.sort(key=lambda x: x["hybrid_score"], reverse=True)
+
+        # connected=true인 결과만 필터링
+        filtered_results = [r for r in results if r.get("connected", False)]
+
+        # SuggestionListResponse 형식으로 변환
+        suggestions = []
+        for r in filtered_results:
+            suggestions.append(SuggestionItem(
+                memoId=r["id"],
+                title=r.get("title", "제목 없음"),
+                zettelId=r.get("zettel_id", ""),
+                similarity=round(r.get("hybrid_score", 0), 4),
+                reason=r.get("reason", "AI 연결 제안"),
+                contentPreview=r.get("content_preview", ""),
+                llmScore=round(r.get("llm_score", 0), 4),
+                vectorSimilarity=round(r.get("vector_similarity", 0), 4),
+            ))
+
+        final_result = SuggestionListResponse(
+            suggestions=suggestions,
+            sourceMemoId=memo_id,
+            threshold=0.5,
+            total=len(suggestions),
+        )
+
+        update_job(
+            job_id,
+            status="completed",
+            progress=100,
+            result=final_result.model_dump(by_alias=True),
+        )
+
+    except Exception as e:
+        update_job(
+            job_id,
+            status="failed",
+            error=str(e),
+        )
+
+
+@router.post("/refine", response_model=RefineResponse)
+async def refine_suggestions(
+    data: RefineRequest,
+    background_tasks: BackgroundTasks,
+) -> RefineResponse:
+    """
+    LLM으로 제안을 비동기적으로 재평가합니다.
+
+    벡터 검색으로 후보를 선정하고, 백그라운드에서 LLM 평가를 수행합니다.
+    작업 ID를 반환하며, `/status/{job_id}`로 상태를 조회할 수 있습니다.
+
+    - **memo_id**: 제안을 받을 메모 ID
+    - **candidate_ids**: 재평가할 후보 메모 ID 목록 (없으면 벡터 검색으로 자동 선정)
+    - **limit**: 재평가할 최대 후보 수 (기본값: 10)
+    - **threshold**: 벡터 유사도 임계값 (기본값: 0.5)
+    """
+    db = get_database()
+    memo_oid = validate_object_id(data.memo_id, "memo_id")
+
+    # 메모 조회
+    memo = db.memos.find_one({"_id": memo_oid})
+    if not memo:
+        raise MemoNotFoundException(data.memo_id)
+
+    # 후보 목록 결정
+    candidates = []
+
+    if data.candidate_ids:
+        # 지정된 후보 사용
+        for cid in data.candidate_ids[:data.limit]:
+            candidate_oid = validate_object_id(cid, "candidate_id")
+            candidate_memo = db.memos.find_one({"_id": candidate_oid})
+            if candidate_memo:
+                candidates.append({
+                    "id": cid,
+                    "title": candidate_memo.get("title", ""),
+                    "content": candidate_memo.get("content", ""),
+                    "zettel_id": candidate_memo.get("zettel_id", ""),
+                    "similarity": 0.5,  # 임의 기본값
+                })
+    else:
+        # 벡터 검색으로 후보 선정
+        embedding_data = get_embedding(data.memo_id)
+        if embedding_data and embedding_data.get("embedding"):
+            embedding = embedding_data["embedding"]
+        else:
+            embedding = create_memo_embedding(
+                memo.get("title", ""),
+                memo.get("content", ""),
+            )
+
+        # 이미 연결된 메모 제외
+        connections = memo.get("connections", [])
+        connected_ids = [str(conn["target_id"]) for conn in connections]
+        exclude_ids = [data.memo_id] + connected_ids
+
+        similar_docs = search_similar(
+            query_embedding=embedding,
+            n_results=data.limit * 2,
+            exclude_ids=exclude_ids,
+        )
+
+        for doc in similar_docs:
+            if doc["similarity"] >= data.threshold:
+                candidate_oid = ObjectId(doc["id"])
+                candidate_memo = db.memos.find_one({"_id": candidate_oid})
+                if candidate_memo:
+                    candidates.append({
+                        "id": doc["id"],
+                        "title": candidate_memo.get("title", ""),
+                        "content": candidate_memo.get("content", ""),
+                        "zettel_id": candidate_memo.get("zettel_id", ""),
+                        "similarity": doc["similarity"],
+                    })
+
+                if len(candidates) >= data.limit:
+                    break
+
+    if not candidates:
+        return RefineResponse(
+            jobId="",
+            memoId=data.memo_id,
+            candidateCount=0,
+            status="completed",
+            message="재평가할 후보가 없습니다.",
+        )
+
+    # 작업 생성
+    job = create_job(
+        memo_id=data.memo_id,
+        candidate_count=len(candidates),
+        job_type="refine",
+    )
+
+    # 백그라운드 작업 시작
+    source_memo = {
+        "title": memo.get("title", ""),
+        "content": memo.get("content", ""),
+    }
+
+    background_tasks.add_task(
+        run_refine_job,
+        job["job_id"],
+        data.memo_id,
+        candidates,
+        source_memo,
+    )
+
+    return RefineResponse(
+        jobId=job["job_id"],
+        memoId=data.memo_id,
+        candidateCount=len(candidates),
+        status="pending",
+        message=f"{len(candidates)}개 후보에 대해 LLM 재평가를 시작합니다.",
+    )
+
+
+@router.get("/status/{job_id}", response_model=JobStatusResponse)
+async def get_job_status(job_id: str) -> JobStatusResponse:
+    """
+    비동기 작업의 상태를 조회합니다.
+
+    - **job_id**: 작업 ID (refine 요청 시 반환된 ID)
+
+    **상태 값:**
+    - pending: 작업 대기 중
+    - processing: 처리 중
+    - completed: 완료
+    - failed: 실패
+    """
+    job = get_job(job_id)
+
+    if not job:
+        raise HTTPException(
+            status_code=404,
+            detail=f"작업을 찾을 수 없습니다: {job_id}",
+        )
+
+    # result를 SuggestionListResponse로 변환
+    result = None
+    if job.get("result"):
+        result = SuggestionListResponse(**job["result"])
+
+    return JobStatusResponse(
+        jobId=job["job_id"],
+        status=job["status"],
+        progress=job.get("progress", 0),
+        memoId=job.get("memo_id"),
+        result=result,
+        error=job.get("error"),
+        createdAt=job.get("created_at"),
+        completedAt=job.get("completed_at"),
+    )
+
+
+@router.get("/cache/stats")
+async def get_cache_statistics() -> dict:
+    """
+    LLM 평가 캐시 통계를 조회합니다.
+    """
+    return get_cache_stats()

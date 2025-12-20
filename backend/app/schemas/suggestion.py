@@ -105,3 +105,62 @@ class BatchSuggestionResponse(BaseModel):
 
     class Config:
         populate_by_name = True
+
+
+class RefineRequest(BaseModel):
+    """비동기 LLM 재평가 요청."""
+
+    memo_id: str = Field(..., alias="memoId", description="제안을 받을 메모 ID")
+    candidate_ids: Optional[list[str]] = Field(
+        None,
+        alias="candidateIds",
+        description="재평가할 후보 메모 ID 목록 (없으면 벡터 검색으로 자동 선정)"
+    )
+    limit: int = Field(10, ge=1, le=20, description="재평가할 최대 후보 수")
+    threshold: float = Field(0.5, ge=0.0, le=1.0, description="벡터 유사도 임계값")
+
+    class Config:
+        populate_by_name = True
+
+
+class RefineResponse(BaseModel):
+    """비동기 LLM 재평가 응답."""
+
+    job_id: str = Field(..., alias="jobId", description="작업 ID")
+    memo_id: str = Field(..., alias="memoId", description="대상 메모 ID")
+    candidate_count: int = Field(..., alias="candidateCount", description="평가할 후보 수")
+    status: str = Field("pending", description="작업 상태 (pending/processing/completed/failed)")
+    message: str = Field(..., description="상태 메시지")
+
+    class Config:
+        populate_by_name = True
+
+
+class JobStatusResponse(BaseModel):
+    """작업 상태 조회 응답."""
+
+    job_id: str = Field(..., alias="jobId", description="작업 ID")
+    status: str = Field(..., description="작업 상태 (pending/processing/completed/failed)")
+    progress: int = Field(0, ge=0, le=100, description="진행률 (0-100)")
+    memo_id: Optional[str] = Field(None, alias="memoId", description="대상 메모 ID")
+    result: Optional[SuggestionListResponse] = Field(None, description="완료 시 결과")
+    error: Optional[str] = Field(None, description="오류 메시지 (실패 시)")
+    created_at: Optional[str] = Field(None, alias="createdAt", description="작업 생성 시간")
+    completed_at: Optional[str] = Field(None, alias="completedAt", description="작업 완료 시간")
+
+    class Config:
+        populate_by_name = True
+
+
+class LLMEvaluationCache(BaseModel):
+    """LLM 평가 결과 캐시 항목."""
+
+    source_id: str = Field(..., alias="sourceId", description="소스 메모 ID")
+    target_id: str = Field(..., alias="targetId", description="타겟 메모 ID")
+    score: float = Field(..., ge=0.0, le=1.0, description="LLM 평가 점수")
+    reason: str = Field(..., description="연결 이유")
+    connected: bool = Field(..., description="연결 추천 여부")
+    evaluated_at: str = Field(..., alias="evaluatedAt", description="평가 시간")
+
+    class Config:
+        populate_by_name = True
