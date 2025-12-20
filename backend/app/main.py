@@ -9,7 +9,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import memos_router, connections_router
+from app.api import memos_router, connections_router, suggestions_router
 from app.config import get_settings
 from app.exceptions import StarNoteException
 from app.services.mongo_service import (
@@ -89,6 +89,7 @@ async def star_note_exception_handler(
 # API Routers
 app.include_router(memos_router)
 app.include_router(connections_router)
+app.include_router(suggestions_router)
 
 
 @app.get("/")

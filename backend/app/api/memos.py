@@ -32,6 +32,7 @@ from app.schemas.connection import (
     MemoNameSearchResult,
     MemoNameSearchResponse,
 )
+from app.schemas.suggestion import SuggestionListResponse
 from app.services.mongo_service import get_database
 from app.services.embedding_service import create_memo_embedding
 from app.services.vector_service import add_embedding, delete_embedding
@@ -521,3 +522,23 @@ async def delete_memo(
         "deleted_id": memo_id,
         "deleted_zettel_id": zettel_id,
     }
+
+
+@router.get("/{memo_id}/suggestions", response_model=SuggestionListResponse)
+async def get_memo_suggestions(
+    memo_id: str,
+    limit: int = Query(10, ge=1, le=20, description="제안 개수"),
+    threshold: float = Query(0.5, ge=0.0, le=1.0, description="유사도 임계값"),
+) -> SuggestionListResponse:
+    """
+    특정 메모에 대한 연결 제안을 가져옵니다.
+
+    벡터 유사도 기반으로 연결할 만한 메모를 추천합니다.
+
+    - **memo_id**: 제안을 받을 메모 ID
+    - **limit**: 제안 개수 (기본값: 10, 최대: 20)
+    - **threshold**: 유사도 임계값 (기본값: 0.5)
+    """
+    # 순환 import 방지를 위해 내부에서 import
+    from app.api.suggestions import get_memo_suggestions as _get_memo_suggestions
+    return await _get_memo_suggestions(memo_id, limit, threshold)

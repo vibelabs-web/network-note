@@ -411,3 +411,36 @@ Key variables in `.env`:
 - 메모 삭제 시 ChromaDB에서도 임베딩 삭제
 - 유사도 검색: 쿼리 벡터로 유사 메모 검색 (상위 N개)
 - 메타데이터 저장: 제목, Zettel ID, 내용 미리보기 (500자)
+
+### [x] Task 4.2: 벡터 기반 연결 제안 API 구현 (완료)
+
+**구현 내용:**
+- 연결 제안 API (`GET /api/memos/{memo_id}/suggestions`)
+- 제안 승인/거부 API (`POST /api/suggestions/approve`, `POST /api/suggestions/reject`)
+- 배치 제안 생성 함수 (10개 이하 동기 처리, 초과 시 백그라운드)
+- 거부된 제안 재표시 방지 (rejection_history 저장)
+- 이미 연결된 메모 제외 로직
+
+**생성된 핵심 파일:**
+- `backend/app/api/suggestions.py` - 제안 API 라우터
+- `backend/app/schemas/suggestion.py` - 제안 관련 Pydantic 스키마
+- `backend/app/services/vector_service.py` - get_embedding, get_embeddings_batch 함수 추가
+
+**API 엔드포인트:**
+- `GET /api/memos/{memo_id}/suggestions` - 특정 메모에 대한 연결 제안
+- `GET /api/suggestions/for/{memo_id}` - 제안 조회 (대체 경로)
+- `POST /api/suggestions/approve` - 제안 승인 (양방향 연결 생성)
+- `POST /api/suggestions/reject` - 제안 거부 (거부 기록 저장)
+- `POST /api/suggestions/batch` - 배치 제안 생성
+
+**쿼리 파라미터 (GET /api/memos/{memo_id}/suggestions):**
+- `limit`: 제안 개수 (기본값: 10, 최대: 20)
+- `threshold`: 유사도 임계값 (기본값: 0.5, 범위: 0.0~1.0)
+
+**주요 기능:**
+- 벡터 유사도 기반 메모 연결 제안
+- 유사도 임계값 필터링
+- 이미 연결된 메모 자동 제외
+- 거부된 제안 자동 제외 (rejection_history)
+- 승인 시 explicit 타입 양방향 연결 생성
+- 배치 처리로 전체 메모 제안 일괄 생성

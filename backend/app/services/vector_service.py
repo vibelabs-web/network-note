@@ -188,3 +188,64 @@ def get_collection_count() -> int:
         return collection.count()
     except Exception:
         return 0
+
+
+def get_embedding(doc_id: str) -> Optional[dict]:
+    """
+    특정 문서의 임베딩을 가져옵니다.
+
+    Args:
+        doc_id: 문서 ID (MongoDB ObjectId 문자열)
+
+    Returns:
+        임베딩 정보 (embedding, metadata) 또는 None
+    """
+    try:
+        collection = get_collection()
+        result = collection.get(
+            ids=[doc_id],
+            include=["embeddings", "metadatas"],
+        )
+
+        if result["ids"] and result["ids"][0]:
+            return {
+                "id": result["ids"][0],
+                "embedding": result["embeddings"][0] if result["embeddings"] else None,
+                "metadata": result["metadatas"][0] if result["metadatas"] else {},
+            }
+        return None
+    except Exception:
+        return None
+
+
+def get_embeddings_batch(doc_ids: list[str]) -> list[dict]:
+    """
+    여러 문서의 임베딩을 배치로 가져옵니다.
+
+    Args:
+        doc_ids: 문서 ID 목록
+
+    Returns:
+        임베딩 정보 목록
+    """
+    if not doc_ids:
+        return []
+
+    try:
+        collection = get_collection()
+        result = collection.get(
+            ids=doc_ids,
+            include=["embeddings", "metadatas"],
+        )
+
+        embeddings = []
+        if result["ids"]:
+            for i, doc_id in enumerate(result["ids"]):
+                embeddings.append({
+                    "id": doc_id,
+                    "embedding": result["embeddings"][i] if result["embeddings"] else None,
+                    "metadata": result["metadatas"][i] if result["metadatas"] else {},
+                })
+        return embeddings
+    except Exception:
+        return []
